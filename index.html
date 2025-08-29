@@ -40,13 +40,13 @@
   const db = getDatabase(app);
 
   // Init Leaflet map
-  var map = L.map('map').setView([47.126147, 24.483897], 20);
+  var map = L.map('map').setView([47.126147, 24.483897], 2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
   var myIcon = L.icon({
-      iconUrl: 'pfp.jpg', // your icon URL
+      iconUrl: 'pfp.jpg',       // your icon URL
       iconSize: [32, 32],       // size of the icon
       iconAnchor: [16, 32],     // point of the icon corresponding to marker position
       popupAnchor: [0, -32]     // where popups open relative to icon
@@ -61,24 +61,27 @@
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
 
-      // Write location to Firebase
-      set(ref(db, "devices/myphone"), { lat: lat, lon: lon });
-    });
+      set(ref(db, "devices/myphone"), {
+        lat: lat,
+        lon: lon,
+        ts: Date.now() // current timestamp in milliseconds
+      });
+    }, error => console.error(error), { enableHighAccuracy: true });
   }
 
   // 🔹 2. Read location (so parents’ browsers update automatically)
   onValue(ref(db, "devices/myphone"), snapshot => {
-    const data = snapshot.val();
-    if (data) {
+  const data = snapshot.val();
+  if (data) {
+    const now = Date.now();
+    if (now - data.ts < 60_000) { // 60 seconds
       phoneMarker.setLatLng([data.lat, data.lon]);
+      map.setView([data.lat, data.lon], 15);
+    } else {
+      map.removeLayer(phoneMarker); // hide marker after 1 minute
     }
-  });
+  }
+});
 </script>
 </body>
 </html>
-
-
-
-
-
-
