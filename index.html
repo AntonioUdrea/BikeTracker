@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>My Live Location</title>
+  <title>Bike Tracker</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -34,7 +34,7 @@
     measurementId: "G-CVFHJL80DK"
 
   };
-  
+
   // Init Firebase
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
@@ -45,8 +45,15 @@
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
+  var myIcon = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/61/61088.png', // your icon URL
+      iconSize: [32, 32],       // size of the icon
+      iconAnchor: [16, 32],     // point of the icon corresponding to marker position
+      popupAnchor: [0, -32]     // where popups open relative to icon
+  });
+
   // Marker for your phone
-  var phoneMarker = L.marker([0,0]).addTo(map).bindPopup("BN 29 TCB");
+  var phoneMarker = L.marker([0,0], { icon: myIcon }).addTo(map).bindPopup("Antonio");
 
   // 🔹 1. Update Firebase with YOUR phone's location
   if (navigator.geolocation) {
@@ -64,11 +71,8 @@
     const data = snapshot.val();
     if (data) {
       phoneMarker.setLatLng([data.lat, data.lon]);
-      map.setView([data.lat, data.lon], 15);
     }
   });
 </script>
 </body>
 </html>
-
-
