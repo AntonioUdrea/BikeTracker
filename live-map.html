@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Live Location</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; width: 100%; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  // Initialize map
+  var map = L.map('map').setView([0, 0], 2);
+
+  // Add OSM tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Add a marker for live location
+  var liveMarker = L.marker([0,0]).addTo(map).bindPopup("My Phone");
+
+  // Watch the device's location
+  if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(
+      function(position) {
+        var lat = position.coords.latitude;
+        var lon = position.coords.longitude;
+
+        liveMarker.setLatLng([lat, lon]);   // move the marker
+        map.setView([lat, lon], 15);        // center the map
+      },
+      function(error) {
+        console.error(error);
+        alert("Could not get location: " + error.message);
+      },
+      { enableHighAccuracy: true }
+    );
+  } else {
+    alert("Geolocation is not supported on this device.");
+  }
+</script>
+</body>
+</html>
