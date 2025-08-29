@@ -74,11 +74,11 @@
   const data = snapshot.val();
   if (data) {
     const now = Date.now();
-    if (now - data.ts < 60_000) { // 60 seconds
+    if (now - data.ts < 60000) {
       phoneMarker.setLatLng([data.lat, data.lon]);
-      map.setView([data.lat, data.lon], 15);
+      phoneMarker.setOpacity(1);
     } else {
-      map.removeLayer(phoneMarker); // hide marker after 1 minute
+      phoneMarker.setOpacity(0.3); // invisible but still exists
     }
   }
 });
