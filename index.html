@@ -40,7 +40,7 @@
   const db = getDatabase(app);
 
   // Init Leaflet map
-  var map = L.map('map').setView([47.12614751819745, 24.48389723299933], 2);
+  var map = L.map('map').setView([47.12614751819745, 24.48389723299933], 70);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
@@ -76,5 +76,6 @@
 </script>
 </body>
 </html>
+
 
 
