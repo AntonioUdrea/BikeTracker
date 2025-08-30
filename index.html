@@ -117,17 +117,26 @@ document.getElementById('finishRouteBtn').onclick = () => {
   set(ref(db,`devices/${currentUser}/routeActive`), false);
 };
 
-navigator.geolocation.watchPosition(pos=>{
-  if(currentUser && routeActive){
+navigator.geolocation.watchPosition(
+  pos => {
+    if (!currentUser) return;
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
-    set(ref(db,`devices/${currentUser}`),{
-      lat, lon, ts:Date.now(),
-      routeId: currentRoute,
-      routeActive: true
-    });
-  }
-}, err=>console.error(err), { enableHighAccuracy:true });
+
+    console.log("Updating Firebase coords:", lat, lon);
+
+    // Update only these fields
+    update(ref(db, `devices/${currentUser}`), {
+      lat: lat,
+      lon: lon,
+      ts: Date.now(),
+      routeId: currentRoute || "Not started",
+      routeActive: routeActive || false
+    }).catch(err => console.error("Firebase update error:", err));
+  },
+  err => console.error("Geolocation error:", err),
+  { enableHighAccuracy: true }
+);
 
 // --- Update map markers from Firebase ---
 onValue(ref(db,"devices"), snapshot => {
@@ -159,4 +168,5 @@ onValue(ref(db,"devices"), snapshot => {
 </script>
 </body>
 </html>
+
 
