@@ -16,14 +16,16 @@
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- PolylineDecorator plugin (must be AFTER Leaflet) -->
+<script src="https://unpkg.com/leaflet-polylinedecorator"></script>
 
 <!-- Firebase JS SDK -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-  // 🔹 Replace with your Firebase config from Step 2
-  const firebaseConfig = {
+// 🔹 Replace with your Firebase config
+const firebaseConfig = {
     apiKey: "AIzaSyDX-qTY_wvPp7nNAbWR_-OAWr8sn_yO3oM",
     authDomain: "bike-tracker-ad774.firebaseapp.com",
     databaseURL: "https://bike-tracker-ad774-default-rtdb.europe-west1.firebasedatabase.app/",
@@ -35,56 +37,101 @@
 
   };
 
-  // Init Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-  // Init Leaflet map
-  var map = L.map('map').setView([47.126147, 24.483897], 15);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+// --- Initialize map ---
+var map = L.map('map').setView([47.126, 24.483], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
-  var myIcon = L.icon({
-      iconUrl: 'pfp.jpg',       // your icon URL
-      iconSize: [32, 32],       // size of the icon
-      iconAnchor: [16, 32],     // point of the icon corresponding to marker position
-      popupAnchor: [0, -32]     // where popups open relative to icon
-  });
+// --- Custom icon for stops & live marker ---
+var stopIcon = L.icon({ iconUrl: 'pfp.jpg', iconSize:[20,20], iconAnchor:[10,10] });
+var myIcon = L.icon({ iconUrl: 'pfp.jpg', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
 
-  // Marker for your phone
-  var phoneMarker = L.marker([0,0], { icon: myIcon }).addTo(map).bindPopup("Antonio");
+// --- Example Routes ---
 
-  // 🔹 1. Update Firebase with YOUR phone's location
-  if (navigator.geolocation) {
-    navigator.geolocation.watchPosition(pos => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
+// Route 1
+var route1Coords = [
+  [47.127113673714135, 24.48559694226462],
+  [47.13000566202311, 24.4909124810451],
+  [47.13013248885414, 24.49133347724394],
+  [47.13027792196825, 24.491176794796456],
+  [47.13055560379498, 24.490600363393696],
+  [47.13197946054669, 24.488564491304363],
+  [47.133358235914145, 24.4882299861872],
+  [47.137139644991734, 24.493975603350567],
+  [47.14113493019968, 24.499632675190743],
+  [47.14338340091483, 24.502810473867097],
+  [47.141047933902385, 24.50608665633639],
+  [47.14026496069348, 24.50722790900873],
+  [47.138913133591565, 24.506804858345394],
+  [47.13811005175047, 24.506194878468797],
+  [47.13658416283531, 24.504620736851777],
+  [47.13521885660899, 24.50182663508638],
+  [47.13497791659136, 24.501708574465102],
+  [47.13456965462497, 24.500498453097027],
+  [47.134549576086734, 24.500409907631063],
+  [47.1352054710811, 24.499435907505536],
+  [47.134951145410895, 24.499052210486386],
+  [47.1339606022593, 24.497694513341706],
+  [47.13238774245565, 24.49509717967363],
+  [47.13026598122257, 24.491151986732312],
+  [47.13021912749683, 24.49071909778763],
+  [47.128518978611574, 24.48758065241621],
+  [47.12723379067653, 24.485337500611955]
+];
+var route1 = L.polyline(route1Coords, { color: 'blue' });
+var route1Arrows = L.polylineDecorator(route1, {
+  patterns:[{ offset: 25, repeat: 50, symbol: L.Symbol.arrowHead({ pixelSize:10, polygon:false, pathOptions:{color:'blue'} }) }]
+});
+var route1Stops = L.layerGroup([
+  L.marker([47.126,24.483], {icon: stopIcon}).bindPopup("Start Route 1"),
+  L.marker([47.128,24.487], {icon: stopIcon}).bindPopup("End Route 1")
+]);
+var route1Group = L.layerGroup([route1, route1Arrows, route1Stops]);
 
-      set(ref(db, "devices/myphone"), {
-        lat: lat,
-        lon: lon,
-        ts: Date.now() // current timestamp in milliseconds
-      });
-    }, error => console.error(error), { enableHighAccuracy: true });
-  }
+// Route 2
+var route2Coords = [[47.130,24.480],[47.132,24.482],[47.134,24.485]];
+var route2 = L.polyline(route2Coords, { color: 'red' });
+var route2Arrows = L.polylineDecorator(route2, {
+  patterns:[{ offset: 25, repeat: 50, symbol: L.Symbol.arrowHead({ pixelSize:10, polygon:false, pathOptions:{color:'red'} }) }]
+});
+var route2Stops = L.layerGroup([
+  L.marker([47.130,24.480], {icon: stopIcon}).bindPopup("Start Route 2"),
+  L.marker([47.134,24.485], {icon: stopIcon}).bindPopup("End Route 2")
+]);
+var route2Group = L.layerGroup([route2, route2Arrows, route2Stops]);
 
-  // 🔹 2. Read location (so parents’ browsers update automatically)
-  onValue(ref(db, "devices/myphone"), snapshot => {
+// --- Layer Control ---
+var overlayMaps = { "Bike Route 1": route1Group, "Bike Route 2": route2Group };
+L.control.layers(null, overlayMaps).addTo(map);
+
+// --- Firebase live marker ---
+var phoneMarker = L.marker([0,0], {icon: myIcon}).addTo(map).bindPopup("Antonio");
+
+// Send your phone location to Firebase
+if(navigator.geolocation){
+  navigator.geolocation.watchPosition(pos=>{
+    const lat=pos.coords.latitude;
+    const lon=pos.coords.longitude;
+    set(ref(db,"devices/myphone"), { lat:lat, lon:lon, ts:Date.now() });
+  }, err=>console.error(err), { enableHighAccuracy:true });
+}
+
+// Update map marker from Firebase
+onValue(ref(db,"devices/myphone"), snapshot=>{
   const data = snapshot.val();
-  if (data) {
+  if(data){
     const now = Date.now();
-    if (now - data.ts < 60000) {
-      phoneMarker.setLatLng([data.lat, data.lon]);
-      phoneMarker.setOpacity(1);
-    } else {
-      phoneMarker.setOpacity(0.3); // invisible but still exists
+    if(now - data.ts < 60000){ // only show if update < 60s
+      phoneMarker.setLatLng([data.lat,data.lon]).setOpacity(1);
+    }else{
+      phoneMarker.setOpacity(0.3);
     }
   }
 });
 </script>
 </body>
 </html>
-
-
-
