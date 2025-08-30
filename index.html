@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Bike Tracker</title>
+  <title>Bike Tracker - TESTING</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -42,6 +42,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
+// Firebase config
 const firebaseConfig = {
     apiKey: "AIzaSyDX-qTY_wvPp7nNAbWR_-OAWr8sn_yO3oM",
     authDomain: "bike-tracker-ad774.firebaseapp.com",
@@ -51,8 +52,7 @@ const firebaseConfig = {
     messagingSenderId: "107735877385",
     appId: "1:107735877385:web:a738f9caa1987d470bf5d8",
     measurementId: "G-CVFHJL80DK"
-
-  };
+};
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -90,13 +90,11 @@ var route2Group = L.layerGroup([route2,route2Arrows,route2Stops]);
 var overlayMaps = { "Bike Route 1": route1Group, "Bike Route 2": route2Group };
 L.control.layers(null, overlayMaps).addTo(map);
 
-// --- Firebase live marker ---
-var phoneMarker = L.marker([0,0],{icon:myIcon}).addTo(map).bindPopup("");
-
 // --- Login & route logic ---
 let currentUser = null;
 let currentRoute = null;
 let routeActive = false;
+let userMarkers = {}; // store marker per user
 
 document.getElementById('loginBtn').onclick = () => {
   const username = document.getElementById('username').value.trim();
@@ -140,10 +138,23 @@ onValue(ref(db,"devices"), snapshot => {
   if(devices){
     for(const userId in devices){
       const data = devices[userId];
-      if(data.routeActive){
-        phoneMarker.setLatLng([data.lat,data.lon])
-                   .bindPopup(`${userId} is on ${data.routeId}`)
-                   .openPopup();
+
+      // Only update if route active and coordinates valid
+      if(data.routeActive && data.lat != null && data.lon != null){
+        if(!userMarkers[userId]){
+          // Create marker if it doesn't exist
+          userMarkers[userId] = L.marker([data.lat, data.lon], {icon: myIcon})
+                                  .addTo(map)
+                                  .bindPopup(`${userId} is on ${data.routeId}`);
+        } else {
+          // Update existing marker
+          userMarkers[userId].setLatLng([data.lat, data.lon])
+                              .bindPopup(`${userId} is on ${data.routeId}`);
+        }
+      } else if(userMarkers[userId]){
+        // Remove marker if route inactive
+        map.removeLayer(userMarkers[userId]);
+        delete userMarkers[userId];
       }
     }
   }
