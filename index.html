@@ -12,6 +12,12 @@
 
   <style>
     #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
+    .time-control {
+    background: rgba(255,255,255,0.8);
+    padding: 5px 10px;
+    font-weight: bold;
+    border-radius: 5px;
+    }
   </style>
 </head>
 <body>
@@ -46,6 +52,28 @@ const db = getDatabase(app);
 // --- Initialize map with fullscreen ---
 var map = L.map('map', { fullscreenControl: true }).setView([47.126, 24.483], 13);
 map.on('fullscreenchange', () => map.invalidateSize());
+
+// Custom control for current time (HH:mm)
+var timeControl = L.control({position: 'topleft'});
+
+timeControl.onAdd = function(map) {
+  this._div = L.DomUtil.create('div', 'time-control');
+  this.update();
+  return this._div;
+};
+
+timeControl.update = function() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  this._div.innerHTML = `<b>${timeStr}</b>`;
+};
+
+timeControl.addTo(map);
+
+// Update every minute
+setInterval(() => {
+  timeControl.update();
+}, 60000);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
