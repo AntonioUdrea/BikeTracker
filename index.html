@@ -17,6 +17,12 @@
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
+<!-- Leaflet Fullscreen Plugin CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.css" />
+
+<!-- Leaflet Fullscreen Plugin JS -->
+<script src="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.js"></script>
+
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
@@ -39,6 +45,12 @@ const db = getDatabase(app);
 // --- Initialize map ---
 var map = L.map('map').setView([47.126, 24.483], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+
+map.addControl(new L.Control.Fullscreen({
+  position: 'topleft',
+  title: 'Show Fullscreen',
+  titleCancel: 'Exit Fullscreen'
+}));
 
 // --- Marker ---
 var myIcon = L.icon({ iconUrl: 'pfp.jpg', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
@@ -76,3 +88,4 @@ onValue(ref(db, "device"), snapshot => {
 </script>
 </body>
 </html>
+
