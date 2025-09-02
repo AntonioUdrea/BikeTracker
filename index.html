@@ -7,6 +7,9 @@
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <!-- Leaflet Fullscreen Plugin CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.css" />
+
   <style>
     #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
   </style>
@@ -16,6 +19,8 @@
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- Leaflet Fullscreen Plugin JS -->
+<script src="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.js"></script>
 
 <!-- Firebase -->
 <script type="module">
@@ -36,9 +41,17 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- Initialize map ---
-var map = L.map('map').setView([47.126, 24.483], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+// --- Initialize map with fullscreen ---
+var map = L.map('map', { fullscreenControl: true }).setView([47.126, 24.483], 13);
+
+// Add fullscreen event listener to fix rendering issues
+map.on('fullscreenchange', function() {
+  map.invalidateSize();
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
 // --- Marker ---
 var myIcon = L.icon({ iconUrl: 'pfp.jpg', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
@@ -49,7 +62,7 @@ if (navigator.geolocation) {
   navigator.geolocation.watchPosition(pos => {
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
-    const speedMS = pos.coords.speed;  // in m/s (may be null)
+    const speedMS = pos.coords.speed;
     const speedKMH = (speedMS !== null) ? (speedMS * 3.6).toFixed(1) : null;
 
     // Update Firebase
@@ -59,6 +72,7 @@ if (navigator.geolocation) {
 }
 
 // --- Update map from Firebase ---
+let firstUpdate = true;
 onValue(ref(db, "device"), snapshot => {
   const data = snapshot.val();
   if (data) {
@@ -66,9 +80,13 @@ onValue(ref(db, "device"), snapshot => {
     const lastUpdateStr = lastUpdateDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
     phoneMarker.setLatLng([data.lat, data.lon])
-               .bindPopup(`${data.speed ? data.speed + " km/h" : "N/A"}<br>
-                           at ${lastUpdateStr}`)
-               .openPopup();
+               .bindPopup(`${data.speed ? data.speed + " km/h" : "N/A"}<br>at ${lastUpdateStr}`);
+
+    // Only set map view for the first location update
+    if (firstUpdate) {
+      map.setView([data.lat, data.lon], 15);
+      firstUpdate = false;
+    }
   }
 });
 </script>
