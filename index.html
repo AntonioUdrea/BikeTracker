@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Bike Tracker</title>
+  <title>Bike Tracker - Anonymous</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -43,48 +43,66 @@ const db = getDatabase(app);
 
 // --- Initialize map with fullscreen ---
 var map = L.map('map', { fullscreenControl: true }).setView([47.126, 24.483], 13);
-
-// Add fullscreen event listener to fix rendering issues
-map.on('fullscreenchange', function() {
-  map.invalidateSize();
-});
+map.on('fullscreenchange', () => map.invalidateSize());
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// --- Marker ---
+// --- Custom icon ---
 var myIcon = L.icon({ iconUrl: 'pfp.jpg', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
-var phoneMarker = L.marker([0,0], {icon: myIcon}).addTo(map).bindPopup("");
 
-// --- Track location ---
+// --- Generate unique ID for this visitor ---
+const visitorId = 'visitor-' + Date.now() + '-' + Math.floor(Math.random()*10000);
+
+// --- Track location for this visitor ---
 if (navigator.geolocation) {
   navigator.geolocation.watchPosition(pos => {
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
     const speedMS = pos.coords.speed;
-    const speedKMH = (speedMS !== null) ? (speedMS * 3.6).toFixed(1) : null;
+    const speedKMH = (speedMS !== null) ? (speedMS*3.6).toFixed(1) : null;
 
     // Update Firebase
-    set(ref(db, "device"), { lat, lon, speed: speedKMH, ts: Date.now() });
+    set(ref(db, `visitors/${visitorId}`), {
+      lat, lon, speed: speedKMH, ts: Date.now()
+    });
 
   }, err => console.error("Geolocation error:", err), { enableHighAccuracy:true });
 }
 
-// --- Update map from Firebase ---
+// --- Map markers for all visitors ---
+const markers = {};
 let firstUpdate = true;
-onValue(ref(db, "device"), snapshot => {
+
+onValue(ref(db, 'visitors'), snapshot => {
   const data = snapshot.val();
-  if (data) {
-    const lastUpdateDate = new Date(data.ts);
-    const lastUpdateStr = lastUpdateDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  const now = Date.now();
 
-    phoneMarker.setLatLng([data.lat, data.lon])
-               .bindPopup(`${data.speed ? data.speed + " km/h" : "N/A"}<br>at ${lastUpdateStr}`);
+  // Remove stale markers
+  for (const id in markers) {
+    if (!data[id] || now - data[id].ts > 120000) { // older than 2 min
+      map.removeLayer(markers[id]);
+      delete markers[id];
+    }
+  }
 
-    // Only set map view for the first location update
+  // Update/create markers for current visitors
+  for (const id in data) {
+    const visitor = data[id];
+    const lastUpdateStr = new Date(visitor.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+
+    if (!markers[id]) {
+      markers[id] = L.marker([visitor.lat, visitor.lon], {icon: myIcon}).addTo(map)
+                     .bindPopup(`Speed: ${visitor.speed ? visitor.speed + " km/h" : "N/A"}<br>at ${lastUpdateStr}`);
+    } else {
+      markers[id].setLatLng([visitor.lat, visitor.lon])
+                  .bindPopup(`Speed: ${visitor.speed ? visitor.speed + " km/h" : "N/A"}<br>at ${lastUpdateStr}`);
+    }
+
+    // Center map on first visitor (only once)
     if (firstUpdate) {
-      map.setView([data.lat, data.lon], 15);
+      map.setView([visitor.lat, visitor.lon], 15);
       firstUpdate = false;
     }
   }
