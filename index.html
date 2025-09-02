@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Bike Tracker</title>
+  <title>Bike Tracker - With Speed</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -63,22 +63,11 @@ onValue(ref(db, "device"), snapshot => {
   const data = snapshot.val();
   if (data) {
     const lastUpdateDate = new Date(data.ts);
-    const lastUpdateStr = lastUpdateDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-
-    // Calculate "time ago"
-    const secondsAgo = Math.floor((Date.now() - data.ts) / 1000);
-    let timeAgo = "";
-    if (secondsAgo < 60) {
-      timeAgo = `${secondsAgo} sec ago`;
-    } else if (secondsAgo < 3600) {
-      timeAgo = `${Math.floor(secondsAgo / 60)} min ago`;
-    } else {
-      timeAgo = `${Math.floor(secondsAgo / 3600)} hr ago`;
-    }
+    const lastUpdateStr = lastUpdateDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
     phoneMarker.setLatLng([data.lat, data.lon])
                .bindPopup(`Speed: ${data.speed ? data.speed + " km/h" : "N/A"}<br>
-                           Last update: ${lastUpdateStr} (${timeAgo})`)
+                           Last update: ${lastUpdateStr}`)
                .openPopup();
 
     map.setView([data.lat, data.lon], 15);
