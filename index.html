@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Bike Tracker - Simple</title>
+  <title>Bike Tracker</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -49,9 +49,11 @@ if (navigator.geolocation) {
   navigator.geolocation.watchPosition(pos => {
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
+    const speedMS = pos.coords.speed;  // in m/s (may be null)
+    const speedKMH = (speedMS !== null) ? (speedMS * 3.6).toFixed(1) : null;
 
     // Update Firebase
-    set(ref(db, "device"), { lat, lon, ts: Date.now() });
+    set(ref(db, "device"), { lat, lon, speed: speedKMH, ts: Date.now() });
 
   }, err => console.error("Geolocation error:", err), { enableHighAccuracy:true });
 }
@@ -60,9 +62,25 @@ if (navigator.geolocation) {
 onValue(ref(db, "device"), snapshot => {
   const data = snapshot.val();
   if (data) {
+    const lastUpdateDate = new Date(data.ts);
+    const lastUpdateStr = lastUpdateDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+
+    // Calculate "time ago"
+    const secondsAgo = Math.floor((Date.now() - data.ts) / 1000);
+    let timeAgo = "";
+    if (secondsAgo < 60) {
+      timeAgo = `${secondsAgo} sec ago`;
+    } else if (secondsAgo < 3600) {
+      timeAgo = `${Math.floor(secondsAgo / 60)} min ago`;
+    } else {
+      timeAgo = `${Math.floor(secondsAgo / 3600)} hr ago`;
+    }
+
     phoneMarker.setLatLng([data.lat, data.lon])
-               .bindPopup(`Lat: ${data.lat.toFixed(5)}, Lon: ${data.lon.toFixed(5)}`)
+               .bindPopup(`Speed: ${data.speed ? data.speed + " km/h" : "N/A"}<br>
+                           Last update: ${lastUpdateStr} (${timeAgo})`)
                .openPopup();
+
     map.setView([data.lat, data.lon], 15);
   }
 });
