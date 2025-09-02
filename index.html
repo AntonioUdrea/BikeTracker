@@ -91,7 +91,7 @@ function updateMarkers(data){
 
   // Remove stale markers
   for(const id in markers){
-    if(!data[id] || !data[id].ts || (now - data[id].ts > 120000)){ // 2 min
+    if(!data[id] || !data[id].ts || (now - data[id].ts > 30000)){ // 2 min
       map.removeLayer(markers[id]);
       delete markers[id];
     }
@@ -136,3 +136,4 @@ L.control.layers(null, overlayMaps).addTo(map);
 </script>
 </body>
 </html>
+
