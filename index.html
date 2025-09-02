@@ -98,12 +98,12 @@ onValue(ref(db,'visitors'), snapshot=>{
   const now = Date.now();
 
   // Remove stale markers
-  for(const id in markers){
-    if(!data[id] || now - data[id].ts > 120000){
-      map.removeLayer(markers[id]);
-      delete markers[id];
-    }
-  }
+  for (const id in markers) {
+  const visitorData = data[id];
+  if (!visitorData || !visitorData.ts || (now - visitorData.ts > 30000)) {
+    map.removeLayer(markers[id]);
+    delete markers[id];
+  } }
 
   // Update/create markers
   for(const id in data){
