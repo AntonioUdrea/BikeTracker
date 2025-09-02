@@ -68,7 +68,8 @@ if (navigator.geolocation) {
   }, err => console.error("Geolocation error:", err), { enableHighAccuracy:true });
 }
 
-// --- Update map from Firebase ---
+let firstUpdate = true;
+
 onValue(ref(db, "device"), snapshot => {
   const data = snapshot.val();
   if (data) {
@@ -78,8 +79,15 @@ onValue(ref(db, "device"), snapshot => {
     phoneMarker.setLatLng([data.lat, data.lon])
                .bindPopup(`Speed: ${data.speed ? data.speed + " km/h" : "N/A"}<br>
                            Last update: ${lastUpdateStr}`);
+
+    // Only pan/zoom map on first update
+    if (firstUpdate) {
+      map.setView([data.lat, data.lon], 15);
+      firstUpdate = false;
+    }
   }
 });
 </script>
 </body>
 </html>
+
