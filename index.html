@@ -21,6 +21,8 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <!-- Leaflet Fullscreen Plugin JS -->
 <script src="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.js"></script>
+<!-- PolylineDecorator plugin -->
+<script src="https://unpkg.com/leaflet-polylinedecorator"></script>
 
 <!-- Firebase -->
 <script type="module">
@@ -107,7 +109,71 @@ onValue(ref(db, 'visitors'), snapshot => {
     }
   }
 });
+
+// --- Routes with arrows and togglable layers ---
+
+// Example Route 1
+var route1Coords = [
+  [47.12694057546665, 24.4848969203833],
+  [47.12561810355038, 24.482380532271023],
+  [47.124274465666566, 24.479573784574573],
+  [47.12260576066305, 24.476150560546937],
+  [47.12099977625768, 24.47326559225456],
+  [47.11987312853164, 24.47468477729205],
+  [47.11957016036687, 24.474670863713254],
+  [47.11910623702124, 24.47475434518605],
+  [47.11753454827561, 24.47233338247503],
+  [47.1176860383692, 24.47205511089905],
+  [47.11715582115476, 24.47115072827712],
+  [47.116038560442874, 24.46948109882124],
+  [47.115375767578854, 24.468298444623333],
+  [47.11439103150859, 24.46683751884944],
+  [47.116019623618456, 24.46945327166365],
+  [47.11555566931536, 24.470051555552]
+];
+var route1Line = L.polyline(route1Coords,{color:'blue'});
+var route1Arrows = L.polylineDecorator(route1Line,{patterns:[{
+  offset:25, repeat:50, symbol:L.Symbol.arrowHead({pixelSize:10, polygon:false, pathOptions:{color:'blue'}})
+}]});
+var route1Stops = L.layerGroup([
+  L.marker([47.12694057546665, 24.4848969203833]).bindPopup(`BIG- Biserica <br> Ora programata de plecare: 15:30`),
+  L.marker([47.11555566931536, 24.470051555552]).bindPopup(`Simpozionului- Prodima <br> Ora programata de ajungere: 15:45`)
+]);
+var route1Group = L.layerGroup([route1Line, route1Arrows, route1Stops]);
+
+// Example Route 2
+var route2Coords = [
+  [47.11555566931536, 24.470051555552],
+  [47.116019623618456, 24.46945327166365],  
+  [47.116038560442874, 24.46948109882124],
+  [47.11715582115476, 24.47115072827712],
+  [47.1176860383692, 24.47205511089905],
+  [47.11753454827561, 24.47233338247503],
+  [47.11910623702124, 24.47475434518605],
+  [47.11957016036687, 24.474670863713254],
+  [47.11987312853164, 24.47468477729205],
+  [47.12099977625768, 24.47326559225456],
+  [47.12260576066305, 24.476150560546937],
+  [47.124274465666566, 24.479573784574573],
+  [47.12561810355038, 24.482380532271023],
+  [47.12694057546665, 24.4848969203833]
+];
+var route2Line = L.polyline(route2Coords,{color:'red'});
+var route2Arrows = L.polylineDecorator(route2Line,{patterns:[{
+  offset:25, repeat:50, symbol:L.Symbol.arrowHead({pixelSize:10, polygon:false, pathOptions:{color:'red'}})
+}]});
+var route2Stops = L.layerGroup([
+  L.marker([47.11555566931, 24.470051555]).bindPopup(`Simpozionului- Prodima <br> Ora programata de plecare: 15:50`),
+  L.marker([47.12694057546665, 24.4848969203833]).bindPopup(`BIG- Biserica <br> Ora programata de ajungere: 16:10`)
+]);
+var route2Group = L.layerGroup([route2Line, route2Arrows, route2Stops]);
+
+// Add layer control for routes
+var overlayMaps = {
+  "BIG-SIMPOZIONULUI TUR": route1Group,
+  "SIMPOZIONULUI-BIG RETUR": route2Group
+};
+L.control.layers(null, overlayMaps).addTo(map);
 </script>
 </body>
 </html>
-
