@@ -66,11 +66,9 @@ onValue(ref(db, "device"), snapshot => {
     const lastUpdateStr = lastUpdateDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
     phoneMarker.setLatLng([data.lat, data.lon])
-               .bindPopup(`Speed: ${data.speed ? data.speed + " km/h" : "N/A"}<br>
-                           Last update: ${lastUpdateStr}`)
+               .bindPopup(`${data.speed ? data.speed + " km/h" : "N/A"}<br>
+                           at ${lastUpdateStr}`)
                .openPopup();
-
-    map.setView([data.lat, data.lon], 15);
   }
 });
 </script>
