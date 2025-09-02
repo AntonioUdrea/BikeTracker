@@ -69,7 +69,7 @@ timeControl.addTo(map);
 setInterval(()=>timeControl.update(),60000);
 
 // --- Visitor icon & unique ID ---
-var myIcon = L.icon({ iconUrl:'pfp.jpg', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
+var myIcon = L.icon({ iconUrl:'pfp.png', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
 const visitorId = 'visitor-' + Date.now() + '-' + Math.floor(Math.random()*10000);
 
 // --- Track location ---
@@ -136,4 +136,5 @@ L.control.layers(null, overlayMaps).addTo(map);
 </script>
 </body>
 </html>
+
 
