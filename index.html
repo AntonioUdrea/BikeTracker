@@ -1,57 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Bike Tracker - TESTING</title>
+  <title>Bike Tracker - Simple</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    #map { height: 90vh; width: 100%; }
-    #loginDiv, #routeControls { padding: 10px; }
+    #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
   </style>
 </head>
 <body>
-
-<!-- Login -->
-<div id="loginDiv">
-  <input type="text" id="username" placeholder="Username" />
-  <button id="loginBtn">Login</button>
-</div>
-
-<!-- Route controls -->
-<div id="routeControls" style="display:none;">
-  <select id="routeSelect">
-    <option value="Route 1">Route 1</option>
-    <option value="Route 2">Route 2</option>
-  </select>
-  <button id="startRouteBtn">Start Route</button>
-  <button id="finishRouteBtn">Finish Route</button>
-</div>
-
 <div id="map"></div>
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<!-- PolylineDecorator plugin -->
-<script src="https://unpkg.com/leaflet-polylinedecorator"></script>
 
-<!-- Firebase JS SDK -->
+<!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-// Firebase config
 const firebaseConfig = {
-    apiKey: "AIzaSyDX-qTY_wvPp7nNAbWR_-OAWr8sn_yO3oM",
-    authDomain: "bike-tracker-ad774.firebaseapp.com",
-    databaseURL: "https://bike-tracker-ad774-default-rtdb.europe-west1.firebasedatabase.app/",
-    projectId: "bike-tracker-ad774",
-    storageBucket: "bike-tracker-ad774.firebasestorage.app",
-    messagingSenderId: "107735877385",
-    appId: "1:107735877385:web:a738f9caa1987d470bf5d8",
-    measurementId: "G-CVFHJL80DK"
+  apiKey: "AIzaSyDX-qTY_wvPp7nNAbWR_-OAWr8sn_yO3oM",
+  authDomain: "bike-tracker-ad774.firebaseapp.com",
+  databaseURL: "https://bike-tracker-ad774-default-rtdb.europe-west1.firebasedatabase.app/",
+  projectId: "bike-tracker-ad774",
+  storageBucket: "bike-tracker-ad774.appspot.com",
+  messagingSenderId: "107735877385",
+  appId: "1:107735877385:web:a738f9caa1987d470bf5d8",
+  measurementId: "G-CVFHJL80DK"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -61,112 +40,32 @@ const db = getDatabase(app);
 var map = L.map('map').setView([47.126, 24.483], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
-// --- Custom icons ---
-var stopIcon = L.icon({ iconUrl:'pfp.jpg', iconSize:[20,20], iconAnchor:[10,10] });
-var myIcon = L.icon({ iconUrl:'pfp.jpg', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
+// --- Marker ---
+var myIcon = L.icon({ iconUrl: 'pfp.jpg', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
+var phoneMarker = L.marker([0,0], {icon: myIcon}).addTo(map).bindPopup("");
 
-// --- Example Routes ---
-// Route 1
-var route1Coords = [[47.126,24.483],[47.127,24.485],[47.128,24.487]];
-var route1 = L.polyline(route1Coords,{color:'blue'});
-var route1Arrows = L.polylineDecorator(route1,{patterns:[{offset:25,repeat:50,symbol:L.Symbol.arrowHead({pixelSize:10,polygon:false,pathOptions:{color:'blue'}})}]});
-var route1Stops = L.layerGroup([
-  L.marker([47.126,24.483],{icon:stopIcon}).bindPopup("Start Route 1"),
-  L.marker([47.128,24.487],{icon:stopIcon}).bindPopup("End Route 1")
-]);
-var route1Group = L.layerGroup([route1,route1Arrows,route1Stops]);
-
-// Route 2
-var route2Coords = [[47.130,24.480],[47.132,24.482],[47.134,24.485]];
-var route2 = L.polyline(route2Coords,{color:'red'});
-var route2Arrows = L.polylineDecorator(route2,{patterns:[{offset:25,repeat:50,symbol:L.Symbol.arrowHead({pixelSize:10,polygon:false,pathOptions:{color:'red'}})}]});
-var route2Stops = L.layerGroup([
-  L.marker([47.130,24.480],{icon:stopIcon}).bindPopup("Start Route 2"),
-  L.marker([47.134,24.485],{icon:stopIcon}).bindPopup("End Route 2")
-]);
-var route2Group = L.layerGroup([route2,route2Arrows,route2Stops]);
-
-// --- Layer control ---
-var overlayMaps = { "Bike Route 1": route1Group, "Bike Route 2": route2Group };
-L.control.layers(null, overlayMaps).addTo(map);
-
-// --- Login & route logic ---
-let currentUser = null;
-let currentRoute = null;
-let routeActive = false;
-let userMarkers = {}; // store marker per user
-
-document.getElementById('loginBtn').onclick = () => {
-  const username = document.getElementById('username').value.trim();
-  if(username){
-    currentUser = username;
-    document.getElementById('loginDiv').style.display='none';
-    document.getElementById('routeControls').style.display='block';
-  }
-};
-
-document.getElementById('startRouteBtn').onclick = () => {
-  currentRoute = document.getElementById('routeSelect').value;
-  routeActive = true;
-  set(ref(db,`devices/${currentUser}/routeId`), currentRoute);
-  set(ref(db,`devices/${currentUser}/routeActive`), true);
-};
-
-document.getElementById('finishRouteBtn').onclick = () => {
-  routeActive = false;
-  set(ref(db,`devices/${currentUser}/routeActive`), false);
-};
-
-navigator.geolocation.watchPosition(
-  pos => {
-    if (!currentUser) return;
+// --- Track location ---
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(pos => {
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
 
-    console.log("Updating Firebase coords:", lat, lon);
+    // Update Firebase
+    set(ref(db, "device"), { lat, lon, ts: Date.now() });
 
-    // Update only these fields
-    update(ref(db, `devices/${currentUser}`), {
-      lat: lat,
-      lon: lon,
-      ts: Date.now(),
-      routeId: currentRoute || "Not started",
-      routeActive: routeActive || false
-    }).catch(err => console.error("Firebase update error:", err));
-  },
-  err => console.error("Geolocation error:", err),
-  { enableHighAccuracy: true }
-);
+  }, err => console.error("Geolocation error:", err), { enableHighAccuracy:true });
+}
 
-// --- Update map markers from Firebase ---
-onValue(ref(db,"devices"), snapshot => {
-  const devices = snapshot.val();
-  if(devices){
-    for(const userId in devices){
-      const data = devices[userId];
-
-      // Only update if route active and coordinates valid
-      if(data.routeActive && data.lat != null && data.lon != null){
-        if(!userMarkers[userId]){
-          // Create marker if it doesn't exist
-          userMarkers[userId] = L.marker([data.lat, data.lon], {icon: myIcon})
-                                  .addTo(map)
-                                  .bindPopup(`${userId} is on ${data.routeId}`);
-        } else {
-          // Update existing marker
-          userMarkers[userId].setLatLng([data.lat, data.lon])
-                              .bindPopup(`${userId} is on ${data.routeId}`);
-        }
-      } else if(userMarkers[userId]){
-        // Remove marker if route inactive
-        map.removeLayer(userMarkers[userId]);
-        delete userMarkers[userId];
-      }
-    }
+// --- Update map from Firebase ---
+onValue(ref(db, "device"), snapshot => {
+  const data = snapshot.val();
+  if (data) {
+    phoneMarker.setLatLng([data.lat, data.lon])
+               .bindPopup(`Lat: ${data.lat.toFixed(5)}, Lon: ${data.lon.toFixed(5)}`)
+               .openPopup();
+    map.setView([data.lat, data.lon], 15);
   }
 });
 </script>
 </body>
 </html>
-
-
