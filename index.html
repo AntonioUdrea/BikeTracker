@@ -46,11 +46,15 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 // --- Initialize map ---
-var map = L.map('map', { fullscreenControl:true }).setView([47.126, 24.483], 13);
-map.on('fullscreenchange', () => map.invalidateSize());
+var map = L.map('map', { 
+  fullscreenControl: true,
+  minZoom: 5,
+  maxZoom: 22
+}).setView([47.126, 24.483], 13);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 22
 }).addTo(map);
 
 // --- Time control HH:mm ---
@@ -136,5 +140,6 @@ L.control.layers(null, overlayMaps).addTo(map);
 </script>
 </body>
 </html>
+
 
 
