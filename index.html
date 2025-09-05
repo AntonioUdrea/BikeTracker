@@ -13,31 +13,65 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
 
   <style>
-    #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
+    body,html { margin:0; padding:0; height:100%; }
+    #map { height: 100%; width: 100%; display:none; }
     .time-control {
       background: rgba(255,255,255,0.8);
       padding: 5px 10px;
       font-weight: bold;
       border-radius: 5px;
     }
+    /* Login overlay */
+    #login-screen {
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100%;
+      background:#f0f0f0;
+    }
+    #login-box {
+      background:white;
+      padding:20px;
+      border-radius:10px;
+      box-shadow:0 0 10px rgba(0,0,0,0.2);
+      text-align:center;
+    }
+    #logout-btn {
+      position:absolute;
+      top:10px;
+      right:10px;
+      z-index:1000;
+      padding:5px 10px;
+      background:#f44336;
+      color:white;
+      border:none;
+      border-radius:5px;
+      cursor:pointer;
+    }
   </style>
 </head>
 <body>
+<div id="login-screen">
+  <div id="login-box">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Enter your name"><br><br>
+    <button id="login-btn">Login</button>
+  </div>
+</div>
+
+<button id="logout-btn" style="display:none;">Logout</button>
 <div id="map"></div>
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<!-- Fullscreen -->
 <script src="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.js"></script>
-<!-- Routing Machine -->
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
-<!-- PolylineDecorator plugin -->
 <script src="https://unpkg.com/leaflet-polylinedecorator"></script>
 
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+import { getDatabase, ref, set, remove, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDX-qTY_wvPp7nNAbWR_-OAWr8sn_yO3oM",
@@ -53,163 +87,112 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- Initialize map ---
-var map = L.map('map', { fullscreenControl:true }).setView([47.126, 24.483], 13);
-map.on('fullscreenchange', () => map.invalidateSize());
+// --- Variables ---
+let visitorId = null;
+let watchId = null;
 
-// --- Time control HH:mm ---
-var timeControl = L.control({position:'topleft'});
-timeControl.onAdd = function(map){
-  this._div = L.DomUtil.create('div','time-control'); 
-  this.update(); 
-  return this._div;
+// --- Login logic ---
+document.getElementById("login-btn").onclick = () => {
+  const username = document.getElementById("username").value.trim();
+  if(!username) return alert("Enter a name!");
+
+  visitorId = "visitor-" + username + "-" + Date.now();
+
+  // Show map + logout
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("map").style.display = "block";
+  document.getElementById("logout-btn").style.display = "block";
+
+  initMap();
+  startTracking();
 };
-timeControl.update = function(){
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  this._div.innerHTML = `<b>${timeStr}</b>`;
-};
-timeControl.addTo(map);
-setInterval(()=>timeControl.update(),60000);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
-
-// --- Visitor icon ---
-var myIcon = L.icon({ iconUrl:'pfp.png', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
-const visitorId = 'visitor-' + Date.now() + '-' + Math.floor(Math.random()*10000);
-
-// --- Track location ---
-if(navigator.geolocation){
-  navigator.geolocation.watchPosition(pos=>{
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
-    const speedKMH = pos.coords.speed ? (pos.coords.speed*3.6).toFixed(1) : null;
-    set(ref(db,`visitors/${visitorId}`),{lat,lon,speed:speedKMH,ts:Date.now()});
-  }, err=>console.error("Geolocation error:",err), {enableHighAccuracy:true});
-}
-
-// --- Map markers for visitors ---
-const markers = {};
-let firstUpdate = true;
-onValue(ref(db,'visitors'), snapshot=>{
-  const data = snapshot.val();
-  const now = Date.now();
-
-  // Remove stale markers
-  for (const id in markers) {
-  const visitorData = data[id];
-  if (!visitorData || !visitorData.ts || (now - visitorData.ts > 30000)) {
-    map.removeLayer(markers[id]);
-    delete markers[id];
-  } }
-
-  // Update/create markers
-  for(const id in data){
-    const visitor = data[id];
-    const lastUpdateStr = new Date(visitor.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-    if(!markers[id]){
-      markers[id] = L.marker([visitor.lat,visitor.lon],{icon:myIcon})
-                        .addTo(map)
-                        .bindPopup(`Speed: ${visitor.speed ? visitor.speed+" km/h":"N/A"}<br>at ${lastUpdateStr}`);
-    } else {
-      markers[id].setLatLng([visitor.lat,visitor.lon])
-                  .bindPopup(`Speed: ${visitor.speed ? visitor.speed+" km/h":"N/A"}<br>at ${lastUpdateStr}`);
-    }
-    if(firstUpdate){
-      map.setView([visitor.lat,visitor.lon],15);
-      firstUpdate=false;
-    }
+// --- Logout logic ---
+document.getElementById("logout-btn").onclick = async () => {
+  if(visitorId){
+    await remove(ref(db,"visitors/"+visitorId));
   }
-});
+  if(watchId !== null){
+    navigator.geolocation.clearWatch(watchId);
+  }
 
-// --- Routes with arrows (no right panel, only layers) ---
-var overlayMaps = {};
+  // Reset UI
+  document.getElementById("map").style.display = "none";
+  document.getElementById("logout-btn").style.display = "none";
+  document.getElementById("login-screen").style.display = "flex";
+};
 
-// Helper function to create a route layer from waypoints
-function createRouteLayer(waypoints, color, stops){
-  var group = L.layerGroup();
-  
-  L.Routing.osrmv1().route(
-    waypoints.map(p=>L.Routing.waypoint(L.latLng(p[0],p[1]))),
-    function(err, routes){
-      if(!err && routes.length>0){
-        const coords = routes[0].coordinates.map(c=>[c.lat,c.lng]);
-        const poly = L.polyline(coords,{color:color,weight:5,opacity:1});
-        group.addLayer(poly);
+// --- Map + features ---
+let map, myIcon, markers={}, firstUpdate=true;
 
-        const arrows = L.polylineDecorator(poly,{patterns:[{
-          offset:25, repeat:50, symbol:L.Symbol.arrowHead({pixelSize:10, polygon:false, pathOptions:{color:color}})
-        }]});
-        group.addLayer(arrows);
+function initMap(){
+  map = L.map('map',{ fullscreenControl:true }).setView([47.126,24.483],13);
+  map.on('fullscreenchange', () => map.invalidateSize());
 
-        stops.forEach((s,i)=>{
-          let marker;
-          const [latlng, label, type] = s; // type: 'start', 'end', 'stop'
-          if(type==='start'){
-            marker = L.circleMarker(latlng, {radius:10, color:'green', fillColor:'green', fillOpacity:1});
-          } else if(type==='end'){
-            marker = L.circleMarker(latlng, {radius:10, color:'red', fillColor:'red', fillOpacity:1});
-          } else { // intermediate stop
-            marker = L.circleMarker(latlng, {radius:8, color:color, fillColor:color, fillOpacity:1});
-          }
-          marker.bindPopup(label);
-          group.addLayer(marker);
-        });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+
+  // Time control
+  var timeControl = L.control({position:'topleft'});
+  timeControl.onAdd = function(map){
+    this._div = L.DomUtil.create('div','time-control');
+    this.update();
+    return this._div;
+  };
+  timeControl.update = function(){
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    this._div.innerHTML = `<b>${timeStr}</b>`;
+  };
+  timeControl.addTo(map);
+  setInterval(()=>timeControl.update(),60000);
+
+  myIcon = L.icon({ iconUrl:'pfp.jpg', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] });
+
+  // Listen for other visitors
+  onValue(ref(db,'visitors'), snapshot=>{
+    const data = snapshot.val() || {};
+    const now = Date.now();
+
+    // Remove stale markers
+    for(const id in markers){
+      const visitorData = data[id];
+      if(!visitorData || !visitorData.ts || (now - visitorData.ts > 30000)){
+        map.removeLayer(markers[id]);
+        delete markers[id];
       }
     }
-  );
-  return group;
+
+    // Add/update markers
+    for(const id in data){
+      const visitor = data[id];
+      const lastUpdateStr = new Date(visitor.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      if(!markers[id]){
+        markers[id] = L.marker([visitor.lat,visitor.lon],{icon:myIcon})
+                        .addTo(map)
+                        .bindPopup(`${id}<br>Speed: ${visitor.speed?visitor.speed+" km/h":"N/A"}<br>at ${lastUpdateStr}`);
+      } else {
+        markers[id].setLatLng([visitor.lat,visitor.lon])
+                   .bindPopup(`${id}<br>Speed: ${visitor.speed?visitor.speed+" km/h":"N/A"}<br>at ${lastUpdateStr}`);
+      }
+      if(firstUpdate){
+        map.setView([visitor.lat,visitor.lon],15);
+        firstUpdate=false;
+      }
+    }
+  });
 }
 
-// Example Route 1
-overlayMaps["8 BIG-SIMPOZIONULUI TUR"] = createRouteLayer(
-  [
-    [47.12735025493888, 24.48543497432021],
-    [47.120615951105876, 24.473798809526006],
-    [47.1175103428872, 24.472357364635457],
-    [47.113965213902524, 24.466146609222164],
-    [47.11540388704404, 24.47020472826282],
-    [47.11489687815368, 24.470883427822315],
-    [47.11861492140795, 24.474053813250695],
-    [47.12483508216617, 24.48123785386578],
-    [47.12677175552046, 24.48515965621442]
-  ],
-  'blue',
-  [
-    [[47.12735025493888, 24.48543497432021], "BIG tur<br>15:30", 'start'],
-    [[47.124651410695066, 24.480630346940806], "Kaufland tur<br>15:33", 'stop'],
-    [[47.12178503217612, 24.47418487782317], "Unix tur<br>15:36", 'stop'],
-    [[47.11857319340017, 24.473899598178686], "Mosilor tur<br>15:38", 'stop'],
-    [[47.11394817785464, 24.46614576629126], "Transmixt tur<br>15:40", 'stop'],
-    [[47.11540388704404, 24.47020472826282], "Simpozionului -cap linie tur<br>15:45", 'end'],
-    [[47.11489687815368, 24.470883427822315], "Simpozionului retur<br>15:50", 'start'],
-    [[47.11863127330815, 24.474081116633215], "Mosilor retur<br>15:52", 'stop'],
-    [[47.12100717467829, 24.47353710697544], "Unix retur<br>15:56", 'stop'],
-    [[47.12443856666532, 24.480833882353384], "Kaufland retur<br>15:58", 'stop'],
-    [[47.12677175552046, 24.48515965621442], "BIG cap linie retur<br>16:10", 'end']
-  ]
-);
-
-// Example Route 2
-overlayMaps["SIGMIR"] = createRouteLayer(
-  [
-    [47.125680952343984, 24.486372587910733],
-    [47.12823765876065, 24.468364033564793],
-    [47.1320885041166, 24.416129885246594]
-  ],
-  'blue',
-  [
-    [[47.125680952343984, 24.486372587910733], "PANAIT CERNA", 'start'],
-    [[47.12767223943821, 24.46919395483794], "OK SHOPPING CENTER", 'stop'],
-    [[47.1320885041166, 24.416129885246594], "SIGMIR-cap linie", 'end']
-  ]
-);
-
-// Add layer control
-L.control.layers(null, overlayMaps).addTo(map);
-
+// --- Location tracking ---
+function startTracking(){
+  if(navigator.geolocation){
+    watchId = navigator.geolocation.watchPosition(pos=>{
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      const speedKMH = pos.coords.speed ? (pos.coords.speed*3.6).toFixed(1) : null;
+      set(ref(db,`visitors/${visitorId}`),{lat,lon,speed:speedKMH,ts:Date.now()});
+    }, err=>console.error("Geolocation error:",err), {enableHighAccuracy:true});
+  }
+}
 </script>
 </body>
 </html>
