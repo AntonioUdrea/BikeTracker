@@ -7,9 +7,7 @@
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <!-- Leaflet Fullscreen Plugin CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.css" />
-  <!-- Routing Machine CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
 
   <style>
@@ -51,6 +49,7 @@
   </style>
 </head>
 <body>
+
 <div id="login-screen">
   <div id="login-box">
     <h2>Login</h2>
@@ -68,7 +67,6 @@
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
 <script src="https://unpkg.com/leaflet-polylinedecorator"></script>
 
-<!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getDatabase, ref, set, remove, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
@@ -90,49 +88,47 @@ const db = getDatabase(app);
 // --- Variables ---
 let visitorId = null;
 let watchId = null;
+let map, myIcon, markers={}, firstUpdate=true;
 
-// --- Login logic ---
+// --- Define route with scheduled times ---
+const route = [
+  { name: "Start", coords: [47.12735, 24.48543], time: "15:30" },
+  { name: "Kaufland", coords: [47.12465, 24.48063], time: "15:33" },
+  { name: "Unix", coords: [47.12178, 24.47418], time: "15:36" },
+  { name: "Mosilor", coords: [47.11857, 24.47389], time: "15:38" },
+  { name: "Transmixt", coords: [47.11394, 24.46614], time: "15:40" },
+  { name: "Simpozionului End", coords: [47.11540, 24.47020], time: "15:45" }
+];
+
+// --- Login ---
 document.getElementById("login-btn").onclick = () => {
   const username = document.getElementById("username").value.trim();
   if(!username) return alert("Enter a name!");
-
   visitorId = "visitor-" + username + "-" + Date.now();
-
-  // Show map + logout
   document.getElementById("login-screen").style.display = "none";
   document.getElementById("map").style.display = "block";
   document.getElementById("logout-btn").style.display = "block";
-
   initMap();
   startTracking();
 };
 
-// --- Logout logic ---
+// --- Logout ---
 document.getElementById("logout-btn").onclick = async () => {
-  if(visitorId){
-    await remove(ref(db,"visitors/"+visitorId));
-  }
-  if(watchId !== null){
-    navigator.geolocation.clearWatch(watchId);
-  }
-
-  // Reset UI
+  if(visitorId) await remove(ref(db,"visitors/"+visitorId));
+  if(watchId !== null) navigator.geolocation.clearWatch(watchId);
   document.getElementById("map").style.display = "none";
   document.getElementById("logout-btn").style.display = "none";
   document.getElementById("login-screen").style.display = "flex";
 };
 
-// --- Map + features ---
-let map, myIcon, markers={}, firstUpdate=true;
-
+// --- Map Initialization ---
 function initMap(){
   map = L.map('map',{ fullscreenControl:true }).setView([47.126,24.483],13);
   map.on('fullscreenchange', () => map.invalidateSize());
-
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
 
   // Time control
-  var timeControl = L.control({position:'topleft'});
+  const timeControl = L.control({position:'topleft'});
   timeControl.onAdd = function(map){
     this._div = L.DomUtil.create('div','time-control');
     this.update();
@@ -153,7 +149,6 @@ function initMap(){
     const data = snapshot.val() || {};
     const now = Date.now();
 
-    // Remove stale markers
     for(const id in markers){
       const visitorData = data[id];
       if(!visitorData || !visitorData.ts || (now - visitorData.ts > 30000)){
@@ -162,19 +157,24 @@ function initMap(){
       }
     }
 
-    // Add/update markers
     for(const id in data){
       const visitor = data[id];
       const lastUpdateStr = new Date(visitor.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      const popupHtml = `
+        <b>${id}</b><br>
+        Speed: ${visitor.speed ? visitor.speed+" km/h":"N/A"}<br>
+        Next Stop: ${visitor.nextStopName || "-"} at ${visitor.nextStopTime || "-"}<br>
+        Lateness: ${visitor.lateness || 0} min
+      `;
       if(!markers[id]){
         markers[id] = L.marker([visitor.lat,visitor.lon],{icon:myIcon})
-                        .addTo(map)
-                        .bindPopup(`${id}<br>Speed: ${visitor.speed?visitor.speed+" km/h":"N/A"}<br>at ${lastUpdateStr}`);
+                         .addTo(map)
+                         .bindPopup(popupHtml);
       } else {
         markers[id].setLatLng([visitor.lat,visitor.lon])
-                   .bindPopup(`${id}<br>Speed: ${visitor.speed?visitor.speed+" km/h":"N/A"}<br>at ${lastUpdateStr}`);
+                    .bindPopup(popupHtml);
       }
-      if(firstUpdate){
+      if(firstUpdate && id === visitorId){
         map.setView([visitor.lat,visitor.lon],15);
         firstUpdate=false;
       }
@@ -182,15 +182,58 @@ function initMap(){
   });
 }
 
-// --- Location tracking ---
+// --- Determine next stop & lateness ---
+function getNextStop(){
+  const now = new Date();
+  for(let i=0;i<route.length;i++){
+    const stopTime = new Date();
+    const [h,m] = route[i].time.split(":").map(Number);
+    stopTime.setHours(h,m,0,0);
+    if(now < stopTime){
+      const latenessMs = now - stopTime;
+      return {
+        index: i,
+        name: route[i].name,
+        scheduled: route[i].time,
+        lateness: Math.round(latenessMs/60000)
+      };
+    }
+  }
+  const last = route[route.length-1];
+  return { index: route.length-1, name: last.name, scheduled: last.time, lateness:0 };
+}
+
+// --- Start location tracking ---
 function startTracking(){
   if(navigator.geolocation){
     watchId = navigator.geolocation.watchPosition(pos=>{
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
       const speedKMH = pos.coords.speed ? (pos.coords.speed*3.6).toFixed(1) : null;
-      set(ref(db,`visitors/${visitorId}`),{lat,lon,speed:speedKMH,ts:Date.now()});
+      const nextStop = getNextStop();
+      set(ref(db,`visitors/${visitorId}`),{
+        lat, lon, speed: speedKMH, ts: Date.now(),
+        nextStopName: nextStop.name,
+        nextStopTime: nextStop.scheduled,
+        lateness: nextStop.lateness
+      });
     }, err=>console.error("Geolocation error:",err), {enableHighAccuracy:true});
+
+    // Optional: update lateness every minute even if stationary
+    setInterval(()=>{
+      navigator.geolocation.getCurrentPosition(pos=>{
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const speedKMH = pos.coords.speed ? (pos.coords.speed*3.6).toFixed(1) : null;
+        const nextStop = getNextStop();
+        set(ref(db,`visitors/${visitorId}`),{
+          lat, lon, speed: speedKMH, ts: Date.now(),
+          nextStopName: nextStop.name,
+          nextStopTime: nextStop.scheduled,
+          lateness: nextStop.lateness
+        });
+      });
+    }, 60000);
   }
 }
 </script>
